@@ -42,7 +42,7 @@ double * adcVoltMovingAverage1Array, *p1CountArray, *p2CountArray;
 unsigned long t1,t2,t3;
 double Temperature,Humidity,AdcVoltage;
 unsigned long lastConnectionTime = 0;            // last time you connected to the server, in milliseconds
-const unsigned long postingInterval = 1 * 60 * 1000L; // delay between updates, in milliseconds
+const unsigned long postingInterval = 1 * 30 * 1000L; // delay between updates, in milliseconds
 const unsigned long sleepInterval = 15 * 1000L;   // sleep 15 sec until postingInterval
 int *humidityArray , *temperatureArray, *adcVoltageArray;      // dynamic memory for temperature & humidity measurements
 
