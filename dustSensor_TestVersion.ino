@@ -60,7 +60,7 @@ void loop()
  // display adc results every 1 second
    if(flagFor1sec) {
       flagFor1sec = false;   
-     // displayResults();
+     displayResults();
     }
   
   // TURN-ON FAN 10 SEC BEFORE TRANSMISSION  
@@ -98,8 +98,8 @@ void intialization() {
   tempHumiditySensor.begin();
   pinMode(DC_FAN,OUTPUT);  // FAN ON-OFF CONTRON
 //  digitalWrite(DC_FAN,1); // turn on fan 
-//  setupWifi("NetweeN","car391133"); // setup wifi
-  setupWifi("SungwonGawon2_5G","car391133"); // setup wifi
+  setupWifi("NetweeN","car391133"); // setup wifi
+//  setupWifi("SungwonGawon2_5G","car391133"); // setup wifi
 }
 
 
@@ -141,16 +141,16 @@ static char** postDataEncoding(int* temperature, int* humidity, int *adcVoltage 
 
 
 void displayResults() {
-  Serial.print("count: ");            Serial.print(tick1Second);
-  Serial.print("\t adc volt(v): ");  Serial.print(adcVoltAverage);
-  Serial.print("\t TIME:  ");           Serial.print(tick60Second);
-  Serial.print("\t time stamp:  ");   Serial.print(timeDifference);
+  Serial.print("count: ");                  Serial.print(tick1Second);
+  Serial.print("\t adc volt(v): ");          Serial.print(adcVoltAverage);
+  Serial.print("\t TIME(min):  ");           Serial.print(tick60Second);
+  Serial.print("\t t3(isr loop time, ms) :  ");           Serial.print(t3);
  // Serial.print("\t p1Count:  ");      Serial.print(p1Count);
  // Serial.print("\t p2Count:  ");      Serial.print(p2Count);
-  Serial.print("\t p1Avg:  ");        Serial.print(p1CountAverage);
-  Serial.print("\t p2Avg:  ");        Serial.print(p2CountAverage);
-  Serial.print("\t Temperature: "); Serial.print(Temperature); 
-  Serial.print("\t Humidity: ");Serial.print(Humidity);Serial.println("%");
+//  Serial.print("\t p1Avg:  ");              Serial.print(p1CountAverage);
+//  Serial.print("\t p2Avg:  ");              Serial.print(p2CountAverage);
+  Serial.print("\t Temperature: ");         Serial.print(Temperature); 
+  Serial.print("\t Humidity: ");            Serial.print(Humidity);Serial.println("%");
 }
 
 void setupPWM_Timer()
@@ -190,18 +190,18 @@ void pwmISR()
  adcVoltAverage =  movingAverage(adcVoltMovingAverage1Array, adcVoltArray[20], MOVING_AVEGRAGE_1);
 
   // P1 and P2 count
-  if (adcVoltAverage > P1Threshold)
+/*  if (adcVoltAverage > P1Threshold)
       p1Count++;
   if (adcVoltAverage > P2Threshold)
-      p2Count++;
+      p2Count++; */
   
   // 1 second flag
   isr_cnt ++; 
 if(isr_cnt == (int)(1000 / (PWMPeriod))) {
   flagFor1sec = true;
   isr_cnt = 0;
-  p1CountAverage = (int)movingAverage(p1CountArray, (double)p1Count, MOVING_AVEGRAGE_30);
-  p2CountAverage = (int)movingAverage(p1CountArray, (double)p2Count, MOVING_AVEGRAGE_30);
+ // p1CountAverage = (int)movingAverage(p1CountArray, (double)p1Count, MOVING_AVEGRAGE_30);
+ // p2CountAverage = (int)movingAverage(p1CountArray, (double)p2Count, MOVING_AVEGRAGE_30);
   
   // get data
   Temperature = tempHumiditySensor.getTemp(); // get temperature
@@ -269,7 +269,7 @@ String data; // data to post
    {
       client.stop();
     if (client.sslConnect(server, 443)) {
-    Serial.println("POSTING DATA TO GOOGLE SHEET...");
+    Serial.print("POSTING DATA TO GOOGLE SHEET...");
     
       data = dataStringArray[k];
       // send the HTTP POST request:
@@ -282,6 +282,7 @@ String data; // data to post
     client.print(data);
     client.println();
     client.println("Connection: close");
+    Serial.print("posted data: ");Serial.println(data);
     // FREE DYNAMIC MEMORY FOR 
     free(dataStringArray[k]);
   }
@@ -289,7 +290,7 @@ String data; // data to post
     // if you couldn't make a connection:
     Serial.println("connection failed");
   }
-  sleep(1000); // delay for posting data to GOOGLE
+  delay(1000); // delay for posting data to GOOGLE
 }
     
     // TURN OFF FAN
@@ -329,7 +330,7 @@ void setupWifi(char* ssid, char *password)
 //char *password = "car391133";
  // attempt to connect to Wifi network:
     Serial.print("Attempting to connect to Network named: ");
-    / / print the network name (SSID);
+    // print the network name (SSID);
     Serial.println(ssid); 
     // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
     WiFi.begin(ssid, password);
