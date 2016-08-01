@@ -25,7 +25,7 @@ WiFiClient client;
 #define NoOfAverage 10
 #define PWMPeriod 10.0    // milisecond
 #define PWMDuty 0.32      // milisecond
-#define MOVING_AVEGRAGE_1  20            // moving average of 100 samples
+#define MOVING_AVEGRAGE_1  20            // moving average of 20 samples
 #define MOVING_AVEGRAGE_30  30
 #define NoOfDataToEncode  10
 #define DC_FAN  5
@@ -38,18 +38,21 @@ unsigned long adcTimeStamp,adcTS1,adcTS2, timeDifference; // adc timestamp
 unsigned long p1Count, p2Count, p1CountAverage, p2CountAverage;
 boolean flagFor1sec = false;  // 1 sec flag
 unsigned long tick1Second, tick30Second, tick60Second;
-double * adcVoltMovingAverage1Array, *p1CountArray, *p2CountArray;
+double *p1CountArray, *p2CountArray;
+double adcVoltMovingAverage1Array[MOVING_AVEGRAGE_1];
 unsigned long t1,t2,t3;
 double Temperature,Humidity,AdcVoltage;
 unsigned long lastConnectionTime = 0;            // last time you connected to the server, in milliseconds
 const unsigned long postingInterval = 1 * 30 * 1000L; // delay between updates, in milliseconds
 const unsigned long sleepInterval = 15 * 1000L;   // sleep 15 sec until postingInterval
-int *humidityArray , *temperatureArray, *adcVoltageArray;      // dynamic memory for temperature & humidity measurements
-
+// int *humidityArray , *temperatureArray, *adcVoltageArray;      // dynamic memory for temperature & humidity measurements
+int humidityArray[NoOfDataToEncode];
+int temperatureArray[NoOfDataToEncode]; 
+int adcVoltageArray[NoOfDataToEncode];
 
 void setup()
 {
- dynamicMemoryAllocation();
+// dynamicMemoryAllocation();
  intialization(); 
  }
 
@@ -81,15 +84,16 @@ void loop()
 /***************************************************************************/
 /*********************** SUB-ROUTINES **************************************/
 /**************************************************************************/
+/*
 void dynamicMemoryAllocation(){
   // allocate dynamic memory for calculating moving average
-  adcVoltMovingAverage1Array = (double*)calloc(MOVING_AVEGRAGE_1,sizeof(double));
-  p1CountArray = (double*)calloc(MOVING_AVEGRAGE_30,sizeof(double));
-  p2CountArray = (double*)calloc(MOVING_AVEGRAGE_30,sizeof(double));
+//  adcVoltMovingAverage1Array = (double*)calloc(MOVING_AVEGRAGE_1,sizeof(double));
+//  p1CountArray = (double*)calloc(MOVING_AVEGRAGE_30,sizeof(double));
+//  p2CountArray = (double*)calloc(MOVING_AVEGRAGE_30,sizeof(double));
   temperatureArray = (int*)calloc(NoOfDataToEncode, sizeof(int));
   humidityArray = (int*)calloc(NoOfDataToEncode, sizeof(int));
   adcVoltageArray = (int*)calloc(NoOfDataToEncode, sizeof(int));
-}
+}*/
 
 void intialization() {
   setupPWM_Timer();
@@ -101,20 +105,6 @@ void intialization() {
   setupWifi("NetweeN","car391133"); // setup wifi
 //  setupWifi("SungwonGawon2_5G","car391133"); // setup wifi
 }
-
-
-/*void storeDataForTransmission(int temperature, int humidity, int adcVoltage)
-{
-      for ( char k=0; k <NoOfDataToEncode-1; k++)
-      {  
-        *(temperatureArray+k) = *(temperatureArray+k+1);
-        *(humidityArray+k) = *(humidityArray+k+1);
-        *(adcVoltageArray+k) = *(adcVoltageArray+k+1);
-      }
-      *(temperatureArray + NoOfDataToEncode-1) = temperature;
-      *(humidityArray + NoOfDataToEncode-1) = humidity;
-      *(adcVoltageArray + NoOfDataToEncode-1) = adcVoltage;
- }*/
  
 void storeDataForTransmission(int *array, int data)
 {
@@ -130,7 +120,7 @@ void storeDataForTransmission(int *array, int data)
 static char** postDataEncoding(int* temperature, int* humidity, int *adcVoltage ) 
 {
   #define BUFFER_SIZE  50  
- char *bufferEncoding[NoOfDataToEncode]; 
+ static char *bufferEncoding[NoOfDataToEncode]; 
  for(char k=0;k<NoOfDataToEncode; k++)
   {
     bufferEncoding[k]     = (char*)calloc(BUFFER_SIZE, sizeof(char));
@@ -170,7 +160,7 @@ void pwmISR()
   unsigned long ulstatus;
   double adcVoltage;  // adc voltage
   double adcVoltArray[NoOfData];
-
+  
   t1 = millis();  //pwmISR loop-time check
   adcTS1 = adcCh3.getTimeStamp(); // get adc start time
  
@@ -221,6 +211,7 @@ if(isr_cnt == (int)(1000 / (PWMPeriod))) {
 // isr loop time check
   t2 = millis();
   t3=t2-t1;
+
 }
 
 void pinISR()
@@ -272,24 +263,44 @@ String data; // data to post
     Serial.print("POSTING DATA TO GOOGLE SHEET...");
     
       data = dataStringArray[k];
-      // send the HTTP POST request:
-    client.println("POST /macros/s/AKfycbwZG8yJLEXqOXkpyPQygB6CFu5T5LkQKVFJOCUxNg3ZI8suQ20/exec HTTP/1.1");
-    client.println("Host: script.google.com");
-    client.println("Content-Type: application/x-www-form-urlencoded");
-    client.print("Content-Length: ");
-    client.println(data.length());
-    client.println();
-    client.print(data);
-    client.println();
-    client.println("Connection: close");
-    Serial.print("posted data: ");Serial.println(data);
-    // FREE DYNAMIC MEMORY FOR 
-    free(dataStringArray[k]);
-  }
-  else {
-    // if you couldn't make a connection:
-    Serial.println("connection failed");
-  }
+      if (k < NoOfDataToEncode -1)  // test for 
+      {
+        // send the HTTP POST request:
+        client.println("POST /macros/s/AKfycbwZG8yJLEXqOXkpyPQygB6CFu5T5LkQKVFJOCUxNg3ZI8suQ20/exec HTTP/1.1");
+        client.println("Host: script.google.com");
+        client.println("Content-Type: application/x-www-form-urlencoded");
+        client.print("Content-Length: ");
+        client.println(data.length());
+        client.println();  // required but i don't know exactly why?
+        client.print(data);
+        client.println();
+        client.println("Connection: close");
+          }
+      else
+      {
+         // send the HTTP POST request:
+         data = "time=12/9&temperature=99&humidity=99&a=0.99";
+        client.println("POST /macros/s/AKfycbwZG8yJLEXqOXkpyPQygB6CFu5T5LkQKVFJOCUxNg3ZI8suQ20/exec HTTP/1.1");
+        client.println("Host: script.google.com");
+        client.println("Content-Type: application/x-www-form-urlencoded");
+        client.print("Content-Length: ");
+        client.println(data.length());
+        client.println();  // required but i don't know exactly why?
+        client.print(data);
+        client.println();
+        client.println("Connection: close");
+      }
+      Serial.print("posted data: ");Serial.println(data);
+      delay(50);
+      // FREE DYNAMIC MEMORY  
+      free(dataStringArray[k]);
+    }
+    else 
+    {
+      // if you couldn't make a connection:
+      Serial.println("connection failed");
+    }
+    
   delay(1000); // delay for posting data to GOOGLE
 }
     
