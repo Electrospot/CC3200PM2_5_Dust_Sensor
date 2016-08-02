@@ -37,7 +37,7 @@ double adcVoltAverage;
 unsigned long adcTimeStamp,adcTS1,adcTS2, timeDifference; // adc timestamp
 unsigned long p1Count, p2Count, p1CountAverage, p2CountAverage;
 boolean flagFor1sec = false;  // 1 sec flag
-unsigned long tick1Second, tick30Second, tick60Second;
+unsigned long tick1Second, tick30Second, tick1Minute, tick1Hour;
 double *p1CountArray, *p2CountArray;
 double adcVoltMovingAverage1Array[MOVING_AVEGRAGE_1];
 unsigned long t1,t2,t3;
@@ -59,9 +59,12 @@ void setup()
 void loop()
 {
   // put your main code here, to run repeatedly:
- 
+  #define HIBERNATE_TIME ((32768)*(1))      // 1 sec ; time based on 32.768 kHz clock
+  #define RESET_INTERVAL_HOUR         6      // software reset every 6 hour
+ static  char **dataToPostToGoogle;              // double pointer to encoded data string
  // display adc results every 1 second
-   if(flagFor1sec) {
+   if(flagFor1sec) 
+   {
       flagFor1sec = false;   
      displayResults();
     }
@@ -70,15 +73,20 @@ void loop()
   if (millis() - lastConnectionTime > postingInterval - 10000L) 
   {
     digitalWrite(DC_FAN,1); // turn on fan
+    
   }
-     // if postingInverval seconds have passed since your last connection,
+  // if postingInverval seconds have passed since your last connection
   // then connect again and send data:
-  if (millis() - lastConnectionTime > postingInterval) {
-      char **dataToPostToGoogle; 
-      dataToPostToGoogle = postDataEncoding(temperatureArray,humidityArray,adcVoltageArray);
-      httpRequest(dataToPostToGoogle);
-    }
-
+  if (millis() - lastConnectionTime > postingInterval)
+     {
+       //     char **dataToPostToGoogle;
+       dataToPostToGoogle = postDataEncoding(temperatureArray,humidityArray,adcVoltageArray);
+       httpRequest(dataToPostToGoogle);
+  
+       // software reset
+       if (tick1Minute > RESET_INTERVAL_HOUR)
+       timerA2PWM.softReset(HIBERNATE_TIME);
+     }
 }
 
 /***************************************************************************/
@@ -102,8 +110,9 @@ void intialization() {
   tempHumiditySensor.begin();
   pinMode(DC_FAN,OUTPUT);  // FAN ON-OFF CONTRON
 //  digitalWrite(DC_FAN,1); // turn on fan 
-  setupWifi("NetweeN","car391133"); // setup wifi
-//  setupWifi("SungwonGawon2_5G","car391133"); // setup wifi
+//  setupWifi("NetweeN","car391133"); // setup wifi
+//  setupWifi("ByoungLoh","car391133"); // setup wifi
+   setupWifi("SungwonGawon2_5G","car391133"); // setup wifi
 }
  
 void storeDataForTransmission(int *array, int data)
@@ -133,7 +142,7 @@ static char** postDataEncoding(int* temperature, int* humidity, int *adcVoltage 
 void displayResults() {
   Serial.print("count: ");                  Serial.print(tick1Second);
   Serial.print("\t adc volt(v): ");          Serial.print(adcVoltAverage);
-  Serial.print("\t TIME(min):  ");           Serial.print(tick60Second);
+  Serial.print("\t TIME(min):  ");           Serial.print(tick1Minute);
   Serial.print("\t t3(isr loop time, ms) :  ");           Serial.print(t3);
  // Serial.print("\t p1Count:  ");      Serial.print(p1Count);
  // Serial.print("\t p2Count:  ");      Serial.print(p2Count);
@@ -203,15 +212,15 @@ if(isr_cnt == (int)(1000 / (PWMPeriod))) {
   storeDataForTransmission(humidityArray,(int)Humidity*10);
   storeDataForTransmission(adcVoltageArray,(int)(AdcVoltage*100));
   
-  p1Count=0;                                              // reset p1 count
-  p2Count=0;
+//  p1Count=0;                                              // reset p1 count
+//  p2Count=0;
   tick1Second++;                                      // increment 1 sec tick
-  (tick1Second%60) ?  :tick60Second++ ; // increment 60 secs tick
+  (tick1Second%60) ?  :tick1Minute++ ;   // increment 1 min tick
+   (tick1Minute%60) ?   : tick1Hour++ ;   // increment 1 min tick
   }
 // isr loop time check
   t2 = millis();
   t3=t2-t1;
-
 }
 
 void pinISR()
@@ -300,8 +309,7 @@ String data; // data to post
       // if you couldn't make a connection:
       Serial.println("connection failed");
     }
-    
-  delay(1000); // delay for posting data to GOOGLE
+    delay(1000); // delay for posting data to GOOGLE
 }
     
     // TURN OFF FAN

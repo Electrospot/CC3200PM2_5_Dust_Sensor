@@ -175,7 +175,14 @@ unsigned long Timer::readRegister(unsigned long ulBase, unsigned char shift)
   return registerVal;
 }
    
+// software rest
 
+void Timer::softReset(unsigned long long  ullTicks ) 
+{
+  PRCMHibernateIntervalSet  ( ullTicks ) ;
+  PRCMHibernateWakeupSourceEnable  (PRCM_HIB_SLOW_CLK_CTR) ;
+  PRCMHibernateEnter  ( ) ;
+}
 
 
 

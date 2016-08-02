@@ -63,6 +63,7 @@ class Timer {
    void intClear(unsigned long ulBase, unsigned long ulflag);
    void intEnable(unsigned long ulBase, unsigned long ulflag);
    unsigned long readRegister(unsigned long ulBase, unsigned char shift);
-   
+   // software reset
+   void softReset(unsigned long long  ullTicks);
 
  };
