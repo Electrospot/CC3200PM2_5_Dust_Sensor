@@ -42,6 +42,7 @@ double *p1CountArray, *p2CountArray;
 double adcVoltMovingAverage1Array[MOVING_AVEGRAGE_1];
 unsigned long t1,t2,t3;
 double Temperature,Humidity,AdcVoltage;
+uint16_t HDC1000Configuration;              //HDC1000 current configuration
 unsigned long lastConnectionTime = 0;            // last time you connected to the server, in milliseconds
 const unsigned long postingInterval = 1 * 30 * 1000L; // delay between updates, in milliseconds
 const unsigned long sleepInterval = 15 * 1000L;   // sleep 15 sec until postingInterval
@@ -59,8 +60,8 @@ void setup()
 void loop()
 {
   // put your main code here, to run repeatedly:
-  #define HIBERNATE_TIME ((32768)*(1))      // 1 sec ; time based on 32.768 kHz clock
-  #define RESET_INTERVAL_HOUR         6      // software reset every 6 hour
+  #define HIBERNATE_TIME ((32768)*(5)*(60))      // 4 min ; time based on 32.768 kHz clock
+ // #define RESET_INTERVAL_HOUR         6      // software reset every 6 hour
  static  char **dataToPostToGoogle;              // double pointer to encoded data string
  // display adc results every 1 second
    if(flagFor1sec) 
@@ -82,11 +83,12 @@ void loop()
        //     char **dataToPostToGoogle;
        dataToPostToGoogle = postDataEncoding(temperatureArray,humidityArray,adcVoltageArray);
        httpRequest(dataToPostToGoogle);
-  
-       // software reset
-       if (tick1Minute > RESET_INTERVAL_HOUR)
+       Serial.println("Hibernating ...");delay(100);
        timerA2PWM.softReset(HIBERNATE_TIME);
      }
+     // software reset
+    // if (tick1Minute > 1)
+     //  timerA2PWM.softReset(HIBERNATE_TIME);
 }
 
 /***************************************************************************/
@@ -110,9 +112,9 @@ void intialization() {
   tempHumiditySensor.begin();
   pinMode(DC_FAN,OUTPUT);  // FAN ON-OFF CONTRON
 //  digitalWrite(DC_FAN,1); // turn on fan 
-//  setupWifi("NetweeN","car391133"); // setup wifi
+  setupWifi("NetweeN","car391133"); // setup wifi
 //  setupWifi("ByoungLoh","car391133"); // setup wifi
-   setupWifi("SungwonGawon2_5G","car391133"); // setup wifi
+//   setupWifi("SungwonGawon2_5G","car391133"); // setup wifi
 }
  
 void storeDataForTransmission(int *array, int data)
@@ -128,12 +130,13 @@ void storeDataForTransmission(int *array, int data)
 // Encode int only for posting to Google sheet
 static char** postDataEncoding(int* temperature, int* humidity, int *adcVoltage ) 
 {
-  #define BUFFER_SIZE  50  
+  #define BUFFER_SIZE  80  
  static char *bufferEncoding[NoOfDataToEncode]; 
+ char batteryStatus = (HDC1000Configuration & 0x0800) >> 11 ;
  for(char k=0;k<NoOfDataToEncode; k++)
   {
     bufferEncoding[k]     = (char*)calloc(BUFFER_SIZE, sizeof(char));
-    sprintf( bufferEncoding[k], "time=12/9&temperature=%d&humidity=%d&a=%d", *(temperature+k),*(humidity+k),*(adcVoltage +k));
+    sprintf( bufferEncoding[k], "id=rm01&time=2016&temperature=%d&humidity=%d&PM2_5=%d&BatteryStatus=%d", *(temperature+k),*(humidity+k),*(adcVoltage +k),batteryStatus);
   }
   return  bufferEncoding;
 }
@@ -206,6 +209,7 @@ if(isr_cnt == (int)(1000 / (PWMPeriod))) {
   Temperature = tempHumiditySensor.getTemp(); // get temperature
   Humidity = tempHumiditySensor.getHumi();  // get humidity
   AdcVoltage = adcVoltAverage; // get ADC voltage
+  HDC1000Configuration = tempHumiditySensor.readConfig();
   
   // store data for transmission ( temp. and humidity is multiplied by 10)
   storeDataForTransmission(temperatureArray,(int)Temperature*10);
@@ -285,20 +289,7 @@ String data; // data to post
         client.println();
         client.println("Connection: close");
           }
-      else
-      {
-         // send the HTTP POST request:
-         data = "time=12/9&temperature=99&humidity=99&a=0.99";
-        client.println("POST /macros/s/AKfycbwZG8yJLEXqOXkpyPQygB6CFu5T5LkQKVFJOCUxNg3ZI8suQ20/exec HTTP/1.1");
-        client.println("Host: script.google.com");
-        client.println("Content-Type: application/x-www-form-urlencoded");
-        client.print("Content-Length: ");
-        client.println(data.length());
-        client.println();  // required but i don't know exactly why?
-        client.print(data);
-        client.println();
-        client.println("Connection: close");
-      }
+   
       Serial.print("posted data: ");Serial.println(data);
       delay(50);
       // FREE DYNAMIC MEMORY  
@@ -309,7 +300,7 @@ String data; // data to post
       // if you couldn't make a connection:
       Serial.println("connection failed");
     }
-    delay(1000); // delay for posting data to GOOGLE
+    sleep(1000); // delay for posting data to GOOGLE
 }
     
     // TURN OFF FAN
@@ -348,6 +339,9 @@ void setupWifi(char* ssid, char *password)
 // your network password
 //char *password = "car391133";
  // attempt to connect to Wifi network:
+ const int delayTime_ms = 500;
+ const char connectionTryMaxCount = 5;
+ static int connectionTrialCount;
     Serial.print("Attempting to connect to Network named: ");
     // print the network name (SSID);
     Serial.println(ssid); 
@@ -355,9 +349,17 @@ void setupWifi(char* ssid, char *password)
     WiFi.begin(ssid, password);
     while ( WiFi.status() != WL_CONNECTED) {
     // print dots while we wait to connect
-      Serial.print(".");
-      delay(300);
+      Serial.print("re-connection tried :");
+      Serial.println(connectionTrialCount);
+      delay(delayTime_ms);
+      connectionTrialCount++;
+      if(connectionTrialCount > connectionTryMaxCount)
+      {
+        timerA2PWM.softReset(10000L);
+        connectionTrialCount = 0;
       }
+      
+    }
   
     Serial.println("\nYou're connected to the network");
     Serial.println("Waiting for an ip address");
